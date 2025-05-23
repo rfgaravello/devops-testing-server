@@ -63,10 +63,10 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-resource "aws_ecr_repository" "app" {
+/*resource "aws_ecr_repository" "app" {
   name         = "devops-demo"
   force_delete = true  # optional, to allow cleanup with terraform destroy
-}
+}*/
 
 # Create an Application Load Balancer
 resource "aws_lb" "app_lb" {
