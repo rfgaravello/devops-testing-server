@@ -2,3 +2,6 @@ node_modules
 npm-debug.log
 .dockerignore
 .git
+Info.txt 
+_deploy.yml
+.vscode/
