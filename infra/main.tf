@@ -127,9 +127,9 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 }
 
 # Create ECR repository to store Docker images
-resource "aws_ecr_repository" "app" {
+/*resource "aws_ecr_repository" "app" {
   name = "devops-demo"
-}
+}*/
 
 # Define ECS task using the Docker image from ECR
 resource "aws_ecs_task_definition" "app" {
