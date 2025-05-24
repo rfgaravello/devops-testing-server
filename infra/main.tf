@@ -60,13 +60,13 @@ resource "aws_security_group" "ecs_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
-
+/*
 # ECR Repository
 resource "aws_ecr_repository" "app" {
   name         = "devops-demo"
   force_delete = true
 }
-
+*/
 # Load Balancer
 resource "aws_lb" "app_lb" {
   name               = "devops-app-lb"
@@ -142,7 +142,7 @@ resource "aws_ecs_task_definition" "app" {
     }]
   }])
 
-  depends_on = [aws_ecr_repository.app]
+ // depends_on = [aws_ecr_repository.app]
 }
 
 # ECS Service
