@@ -2,6 +2,11 @@ provider "aws" {
   region = "ap-southeast-2"
 }
 
+data "aws_ecr_repository" "app" {
+  name = "devops-demo"
+}
+
+
 # Create a VPC
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
@@ -135,7 +140,8 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([{
     name  = "devops-app"
-    image = "${aws_ecr_repository.app.repository_url}:latest"
+    //image = "${aws_ecr_repository.app.repository_url}:latest"
+    image = "${data.aws_ecr_repository.app.repository_url}:latest"
     portMappings = [{
       containerPort = 80
       hostPort      = 80
