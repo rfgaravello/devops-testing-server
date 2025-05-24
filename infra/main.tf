@@ -84,7 +84,7 @@ resource "aws_lb" "app_lb" {
 # Target Group
 resource "aws_lb_target_group" "app_tg" {
   name        = "app-target-group"
-  port        = 80
+  port        = 3000
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
   target_type = "ip"
@@ -143,8 +143,8 @@ resource "aws_ecs_task_definition" "app" {
     //image = "${aws_ecr_repository.app.repository_url}:latest"
     image = "${data.aws_ecr_repository.app.repository_url}:latest"
     portMappings = [{
-      containerPort = 80
-      hostPort      = 80
+      containerPort = 3000
+      hostPort      = 3000
     }]
   }])
 
@@ -168,7 +168,7 @@ resource "aws_ecs_service" "app" {
   load_balancer {
     target_group_arn = aws_lb_target_group.app_tg.arn
     container_name   = "devops-app"
-    container_port   = 80
+    container_port   = 3000
   }
 
   depends_on = [aws_lb_listener.app_listener]
