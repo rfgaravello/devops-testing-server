@@ -2,15 +2,15 @@ provider "aws" {
   region = "ap-southeast-2"
 }
 
-# Create a VPC to launch resources
+# Create a VPC
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 }
 
-# Get availability zones in the region
+# Get availability zones
 data "aws_availability_zones" "available" {}
 
-# Create two public subnets across AZs
+# Create two public subnets
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
@@ -19,12 +19,12 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 }
 
-# Create an Internet Gateway for internet access
+# Internet Gateway
 resource "aws_internet_gateway" "gw" {
   vpc_id = aws_vpc.main.id
 }
 
-# Create a route table for the public subnets
+# Public Route Table
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -34,19 +34,18 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Associate the route table with the subnets
+# Associate Route Table with Subnets
 resource "aws_route_table_association" "public" {
   count          = 2
   subnet_id      = aws_subnet.public[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
-# Security Group for ECS tasks and ALB
+# Security Group
 resource "aws_security_group" "ecs_sg" {
   name   = "ecs_sg"
   vpc_id = aws_vpc.main.id
 
-  # Allow inbound HTTP traffic
   ingress {
     from_port   = 80
     to_port     = 80
@@ -54,7 +53,6 @@ resource "aws_security_group" "ecs_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -63,12 +61,13 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
+# ECR Repository
 resource "aws_ecr_repository" "app" {
   name         = "devops-demo"
-  force_delete = true  # optional, to allow cleanup with terraform destroy
+  force_delete = true
 }
 
-# Create an Application Load Balancer
+# Load Balancer
 resource "aws_lb" "app_lb" {
   name               = "devops-app-lb"
   internal           = false
@@ -77,16 +76,16 @@ resource "aws_lb" "app_lb" {
   subnets            = aws_subnet.public[*].id
 }
 
-# Create a target group for the ALB
+# Target Group
 resource "aws_lb_target_group" "app_tg" {
-  name         = "app-target-group"
-  port         = 80
-  protocol     = "HTTP"
-  vpc_id       = aws_vpc.main.id
-  target_type  = "ip"
+  name        = "app-target-group"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
 }
 
-# Create a listener on the ALB to forward requests to the target group
+# Listener
 resource "aws_lb_listener" "app_listener" {
   load_balancer_arn = aws_lb.app_lb.arn
   port              = 80
@@ -98,13 +97,12 @@ resource "aws_lb_listener" "app_listener" {
   }
 }
 
-# Create an ECS Cluster
+# ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "devops-cluster"
-  
 }
 
-# IAM role ECS tasks need to pull images and write logs
+# IAM Role for ECS Task Execution
 resource "aws_iam_role" "ecs_task_execution" {
   name = "ecsTaskExecutionRole"
 
@@ -120,18 +118,13 @@ resource "aws_iam_role" "ecs_task_execution" {
   })
 }
 
-# Attach ECS execution policy to the IAM role
+# Attach Policy to Role
 resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   role       = aws_iam_role.ecs_task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# Create ECR repository to store Docker images
-/*resource "aws_ecr_repository" "app" {
-  name = "devops-demo"
-}*/
-
-# Define ECS task using the Docker image from ECR
+# ECS Task Definition
 resource "aws_ecs_task_definition" "app" {
   family                   = "devops-app-task"
   network_mode             = "awsvpc"
@@ -140,21 +133,19 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "devops-app",
-      image     = "${aws_ecr_repository.app.repository_url}:latest",
-      portMappings = [
-        {
-          containerPort = 80,
-          hostPort      = 80
-        }
-      ]
-    }
-  ])
+  container_definitions = jsonencode([{
+    name  = "devops-app"
+    image = "${aws_ecr_repository.app.repository_url}:latest"
+    portMappings = [{
+      containerPort = 80
+      hostPort      = 80
+    }]
+  }])
+
+  depends_on = [aws_ecr_repository.app]
 }
 
-# Create ECS service to run and manage the task
+# ECS Service
 resource "aws_ecs_service" "app" {
   name            = "devops-app-service"
   cluster         = aws_ecs_cluster.main.id
