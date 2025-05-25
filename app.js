@@ -10,6 +10,9 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-app.listen(PORT, () => {
-  console.log(`DevOps process testing server running at http://localhost:${PORT}`);
+//app.listen(PORT, () => {
+  //console.log(`DevOps process testing server running at http://localhost:${PORT}`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`App running at http://0.0.0.0:${PORT}`);
 });
