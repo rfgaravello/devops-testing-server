@@ -170,8 +170,10 @@ resource "aws_ecs_service" "app" {
 }
 
 # === CodeDeploy Blue/Green ===
-resource "aws_codedeploy_app" "ecs" {
-  name = "devops-app"
+
+
+resource "aws_codedeploy_app" "ecs_app" {
+  name = "devops-codedeploy-app"
   compute_platform = "ECS"
 }
 

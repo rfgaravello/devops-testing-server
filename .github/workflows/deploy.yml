@@ -27,6 +27,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.6
+  
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra
+  
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: infra
+
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
@@ -95,15 +108,4 @@ jobs:
             --s3-location bucket=$S3_BUCKET,bundleType=YAML,key=appspec.yaml \
             --file-exists-behavior OVERWRITE
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.6.6
 
-      - name: Terraform Init
-        run: terraform init
-        working-directory: infra
-
-      - name: Terraform Apply
-        run: terraform apply -auto-approve
-        working-directory: infra
