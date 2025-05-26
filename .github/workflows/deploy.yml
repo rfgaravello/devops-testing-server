@@ -14,6 +14,7 @@ jobs:
       ECR_REGISTRY: 555901236716.dkr.ecr.ap-southeast-2.amazonaws.com
       ECR_REPOSITORY: devops-demo
       IMAGE_TAG: ${{ github.run_number }}
+      S3_BUCKET: 555901236716deploybkt
 
     steps:
       - name: Checkout repository
@@ -33,6 +34,32 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Create ECS task definition template
+        run: |
+          cat <<EOF > taskdef.json
+          {
+            "family": "devops-app-task",
+            "networkMode": "awsvpc",
+            "containerDefinitions": [
+              {
+                "name": "devops-app",
+                "image": "<IMAGE>",
+                "portMappings": [
+                  {
+                    "containerPort": 3000,
+                    "protocol": "tcp"
+                  }
+                ],
+                "essential": true
+              }
+            ],
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "arn:aws:iam::555901236716:role/ecsTaskExecutionRole"
+          }
+          EOF
 
       - name: Register new ECS task definition
         run: |
@@ -57,7 +84,7 @@ jobs:
 
       - name: Upload AppSpec to S3
         run: |
-          aws s3 cp appspec.yaml s3://555901236716deploybkt/appspec.yaml
+          aws s3 cp appspec.yaml s3://$S3_BUCKET/appspec.yaml
 
       - name: Deploy with CodeDeploy (Blue/Green)
         run: |
@@ -65,7 +92,7 @@ jobs:
             --application-name devops-codedeploy-app \
             --deployment-group-name devops-deployment-group \
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
-            --s3-location bucket=my-bucket,bundleType=YAML,key=appspec.yaml \
+            --s3-location bucket=$S3_BUCKET,bundleType=YAML,key=appspec.yaml \
             --file-exists-behavior OVERWRITE
 
       - name: Setup Terraform
