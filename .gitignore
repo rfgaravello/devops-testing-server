@@ -6,3 +6,5 @@ Info.txt
 _deploy.yml
 .vscode/
 .terraform*
+infra/terraform.tfstate
+terraform.tfstate

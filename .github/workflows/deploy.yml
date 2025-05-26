@@ -9,6 +9,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: ap-southeast-2
+      ECR_REGISTRY: 555901236716.dkr.ecr.ap-southeast-2.amazonaws.com
+      ECR_REPOSITORY: devops-demo
+      IMAGE_TAG: ${{ github.run_number }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -18,20 +24,49 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-southeast-2
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build, tag, and push image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: devops-demo
-          IMAGE_TAG: latest
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Register new ECS task definition
+        run: |
+          sed "s|<IMAGE>|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|" taskdef.json > new-taskdef.json
+          aws ecs register-task-definition --cli-input-json file://new-taskdef.json > output.json
+          TASK_DEF_ARN=$(jq -r '.taskDefinition.taskDefinitionArn' output.json)
+          echo "TASK_DEF_ARN=$TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Create AppSpec file
+        run: |
+          cat <<EOF > appspec.yaml
+          version: 1
+          Resources:
+            - TargetService:
+                Type: AWS::ECS::Service
+                Properties:
+                  TaskDefinition: $TASK_DEF_ARN
+                  LoadBalancerInfo:
+                    ContainerName: devops-app
+                    ContainerPort: 3000
+          EOF
+
+      - name: Upload AppSpec to S3
+        run: |
+          aws s3 cp appspec.yaml s3://555901236716deploybkt/appspec.yaml
+
+      - name: Deploy with CodeDeploy (Blue/Green)
+        run: |
+          aws deploy create-deployment \
+            --application-name devops-codedeploy-app \
+            --deployment-group-name devops-deployment-group \
+            --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
+            --s3-location bucket=my-bucket,bundleType=YAML,key=appspec.yaml \
+            --file-exists-behavior OVERWRITE
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2

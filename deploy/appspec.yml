@@ -1,0 +1,9 @@
+version: 1
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: <TASK_DEFINITION_ARN>
+        LoadBalancerInfo:
+          ContainerName: devops-app
+          ContainerPort: 3000
