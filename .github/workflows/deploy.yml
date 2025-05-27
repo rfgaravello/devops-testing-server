@@ -103,7 +103,7 @@ jobs:
         run: |
           aws deploy create-deployment \
             --application-name devops-codedeploy-app \
-            --deployment-group-name 555901236716-deployment-group \
+            --deployment-group-name devops-app-deploy-group \
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
             --s3-location bucket=$S3_BUCKET,bundleType=YAML,key=appspec.yml \
             
