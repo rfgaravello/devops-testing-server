@@ -106,6 +106,6 @@ jobs:
             --deployment-group-name devops-deployment-group \
             --deployment-config-name CodeDeployDefault.ECSCanary10Percent5Minutes \
             --s3-location bucket=$S3_BUCKET,bundleType=YAML,key=appspec.yaml \
-            --file-exists-behavior OVERWRITE
+            
 
 
