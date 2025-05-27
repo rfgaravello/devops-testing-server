@@ -123,6 +123,53 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role" "codedeploy_service_role" {
+  name = "CodeDeployServiceRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = {
+        Service = "codedeploy.amazonaws.com"
+      },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "codedeploy_inline_policy" {
+  name = "CodeDeployECSInlinePolicy"
+  role = aws_iam_role.codedeploy_service_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ecs:CreateDeployment",
+          "ecs:UpdateService",
+          "ecs:DescribeServices",
+          "ecs:DescribeTaskDefinition",
+          "ecs:RegisterTaskDefinition",
+          "ecs:ListTasks",
+          "ecs:DescribeTasks",
+          "elasticloadbalancing:DeregisterTargets",
+          "elasticloadbalancing:RegisterTargets",
+          "elasticloadbalancing:Describe*",
+          "ec2:Describe*",
+          "iam:PassRole",
+          "cloudwatch:DescribeAlarms",
+          "sns:Publish"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+
 resource "aws_ecs_task_definition" "app" {
   family                   = "devops-app-task"
   network_mode             = "awsvpc"
@@ -137,9 +184,9 @@ resource "aws_ecs_task_definition" "app" {
     portMappings = [{
       containerPort = 3000,
       hostPort      = 3000,
-      protocol: "tcp"
+      protocol      = "tcp"
     }],
-    essential: true
+    essential = true
   }])
 }
 
@@ -169,23 +216,38 @@ resource "aws_ecs_service" "app" {
   depends_on = [aws_lb_listener.app_listener]
 }
 
-# === CodeDeploy Blue/Green ===
-
-
-resource "aws_codedeploy_app" "ecs_app" {
-  name = "devops-codedeploy-app"
+# === CodeDeploy for ECS Blue/Green ===
+resource "aws_codedeploy_app" "ecs" {
+  name             = "devops-codedeploy-app"
   compute_platform = "ECS"
 }
 
 resource "aws_codedeploy_deployment_group" "ecs" {
-  app_name               = aws_codedeploy_app.ecs.name
+  app_name              = aws_codedeploy_app.ecs.name
   deployment_group_name = "devops-app-deploy-group"
-  service_role_arn       = aws_iam_role.ecs_task_execution.arn
-
+  service_role_arn      = aws_iam_role.codedeploy_service_role.arn
   deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
+
   auto_rollback_configuration {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
+  }
+
+  deployment_style {
+    deployment_type   = "BLUE_GREEN"
+    deployment_option = "WITH_TRAFFIC_CONTROL"
+  }
+
+  blue_green_deployment_config {
+    terminate_blue_instances_on_deployment_success {
+      action                         = "TERMINATE"
+      termination_wait_time_in_minutes = 5
+    }
+
+    deployment_ready_option {
+      action_on_timeout     = "CONTINUE_DEPLOYMENT"
+      wait_time_in_minutes  = 0
+    }
   }
 
   ecs_service {
@@ -208,4 +270,9 @@ resource "aws_codedeploy_deployment_group" "ecs" {
       }
     }
   }
+
+  depends_on = [
+    aws_ecs_service.app,
+    aws_iam_role_policy.codedeploy_inline_policy
+  ]
 }
